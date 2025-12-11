@@ -14,7 +14,7 @@
 </head>
 <body>
     <h1>🍲 Analisis Makanan & Resep Otomatis</h1>
-    <p>Unggah gambar sayuran atau bahan makanan Anda, dan Gemini akan menghasilkan resep dan saran penyimpanan!</p>
+    <p>Unggah gambar sayuran atau bahan makanan yang Anda, dan Gemini akan menghasilkan resep dan saran penyimpanan!</p>
 
     <label for="textInput" style="display:block; margin-bottom:5px;">
         Atau, ketik aja bahan-bahan yang ada di kulkasmu di sini, biar kita yang mikirin resepnya:
