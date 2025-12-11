@@ -1,0 +1,42 @@
+name: PHP Unit & File Validation Testing
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    # Menggunakan PHP 8.2 (sesuaikan jika perlu)
+    strategy:
+      matrix:
+        php-version: ['8.2'] 
+        
+    steps:
+      - name: Checkout kode
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          # Pastikan ekstensi cURL terinstal untuk simulasi di ApiTest
+          extensions: curl, json 
+          tools: composer, phpunit
+
+      - name: Instal dependencies
+        # Diasumsikan Anda menggunakan Composer untuk PHPUnit
+        run: composer install --no-progress --prefer-dist
+        
+      - name: Jalankan PHPUnit (File Validation & API Simulation)
+        # Menetapkan Environment Variable yang digunakan oleh ApiTest.php
+        env:
+          # Menggunakan kunci palsu sesuai dengan setUp() di ApiTest.php
+          # Catatan: Tes ini tetap memerlukan instalasi PHPUnit dan Apache/Nginx 
+          # jika Anda benar-benar ingin memanggil API_ENDPOINT (http://localhost/...)
+          GEMINI_API_KEY: 'TEST_KEY_12345'
+          
+        run: vendor/bin/phpunit --configuration phpunit.xml
