@@ -1,51 +1,112 @@
 <?php
 use PHPUnit\Framework\TestCase;
 
-// Definisikan konstanta untuk kemudahan pengujian
-define('INDEX_FILE_PATH', 'index.php'); // Asumsi path file front-end Anda
-
-class FileTypeTest extends TestCase
+/**
+ * Kelas pengujian untuk validasi integrasi API Gemini.
+ * * Catatan: Asumsikan GEMINI_API_KEY telah diatur sebagai environment variable
+ * dan file yang diuji ('process.php' atau sejenisnya) ada.
+ */
+class ApiTest extends TestCase
 {
+    // Konfigurasi API
+    private $apiKey;
+    private $apiUrlBase = 'https://generativelanguage.googleapis.com/v1beta/models/';
+    private $model = 'gemini-2.5-flash';
+    
+    // File yang harus ada di project Anda (sesuaikan jika nama berbeda)
     private $projectFiles = [
-        API_FILE_PATH,  // process.php (didefinisikan di ApiTest.php)
-        INDEX_FILE_PATH // index.php (file yang berisi HTML/JS)
+        'index.html',
+        'process.php' // Tambahkan file test ini sendiri
     ];
 
     /**
-     * Test Case A: Memastikan semua file yang dibutuhkan ada.
+     * Metode setup dijalankan sebelum setiap test case.
      */
-    public function test_a_files_exist()
+    protected function setUp(): void
     {
+        // Ambil API Key dari environment variable
+        $this->apiKey = getenv('GEMINI_API_KEY');
+    }
+
+    // --- a. file exist ---
+    public function test_a_project_files_exist()
+    {
+        echo "\n[TEST A] Memeriksa keberadaan file proyek...";
         foreach ($this->projectFiles as $file) {
             $this->assertFileExists($file, "File $file tidak ditemukan!");
+            echo "."; // Indikator sukses
         }
+        echo " OK.";
     }
 
-    /**
-     * Test Case B: Memastikan file PHP memiliki tag pembuka.
-     */
+    // --- b. valid syntax ---
+    // Menggunakan regex sederhana untuk memastikan kode PHP mengandung tag <?php
     public function test_b_php_files_contain_php_code()
     {
-        if (pathinfo(API_FILE_PATH, PATHINFO_EXTENSION) === 'php') {
-            $content = file_get_contents(API_FILE_PATH);
-            $this->assertStringContainsString('<?php', $content, "File " . API_FILE_PATH . " tidak mengandung tag pembuka PHP.");
+        echo "\n[TEST B] Memeriksa sintaks dasar PHP...";
+        $phpFiles = array_filter($this->projectFiles, function($file) {
+            return pathinfo($file, PATHINFO_EXTENSION) === 'php';
+        });
+
+        foreach ($phpFiles as $file) {
+            $content = file_get_contents($file);
+            $this->assertStringContainsString('<?php', $content, "File $file tidak mengandung tag <?php!");
+            echo ".";
         }
+        echo " OK.";
+    }
+    
+    // --- c. API Key tidak boleh kosong ---
+    public function test_c_api_key_is_not_empty()
+    {
+        echo "\n[TEST C] Memeriksa apakah API Key telah disetel...";
+        $this->assertNotEmpty($this->apiKey, "API Key (GEMINI_API_KEY) tidak boleh kosong. Harap atur sebagai environment variable.");
+        echo " OK.";
     }
 
-    /**
-     * Test Case C: Memastikan file index.php mengandung tag HTML dasar.
-     */
-    public function test_c_html_file_contains_basic_tags()
+    // --- d. valid JSON response & e. Response Code harus 200 ---
+    // Kedua tes ini digabung dalam satu panggilan API untuk efisiensi.
+    public function test_d_and_e_api_call_succeeds_and_returns_valid_json()
     {
-        if (pathinfo(INDEX_FILE_PATH, PATHINFO_EXTENSION) === 'php' || pathinfo(INDEX_FILE_PATH, PATHINFO_EXTENSION) === 'html') {
-            $content = file_get_contents(INDEX_FILE_PATH);
+        echo "\n[TEST D&E] Memanggil API Gemini dan memvalidasi respon...";
 
-            // Cek apakah ada tag HTML dasar (ini juga mencakup file .php yang berfungsi sebagai halaman utama)
-            $this->assertMatchesRegularExpression(
-                '/<html|<head|<body/i',
-                $content,
-                "File " . INDEX_FILE_PATH . " tidak memiliki struktur HTML dasar yang valid!"
-            );
+        if (empty($this->apiKey)) {
+            $this->markTestSkipped('Tes dilewati karena GEMINI_API_KEY kosong.');
         }
+
+        $url = $this->apiUrlBase . $this->model . ':generateContent?key=' . $this->apiKey;
+
+        // Payload permintaan sederhana
+        $payload = json_encode([
+            'contents' => [['parts' => [['text' => 'Hello.']]]]
+        ]);
+
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+        
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        // --- e. Response Code harus 200 ---
+        echo "\n  > Memvalidasi Response Code...";
+        $this->assertEquals(200, $httpCode, 
+            "Kode Respon HTTP yang diharapkan 200, didapat $httpCode. Respons: $response");
+        echo " OK.";
+        
+        // --- d. valid JSON response ---
+        echo "\n  > Memvalidasi format JSON...";
+        $responseData = json_decode($response, true);
+        
+        // Memastikan decoding JSON berhasil
+        $this->assertNotNull($responseData, "Respon API bukan format JSON yang valid: $response");
+        
+        // Memastikan respons JSON memiliki struktur dasar Gemini (kandidat)
+        $this->assertArrayHasKey('candidates', $responseData, 
+            "Respon JSON valid, tetapi tidak memiliki kunci 'candidates' yang diharapkan.");
+        echo " OK.\n";
     }
 }
