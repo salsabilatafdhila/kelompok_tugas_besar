@@ -1,0 +1,45 @@
+name: PHP API and Unit Testing
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  # Anda dapat menambahkan 'develop' di sini jika menggunakan Git Flow
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    # Menentukan versi PHP yang akan digunakan
+    strategy:
+      matrix:
+        php-version: ['8.2'] # Gunakan versi PHP yang sesuai dengan proyek Anda
+        
+    steps:
+      - name: ⚙️ Checkout kode
+        uses: actions/checkout@v4
+
+      - name: 🛠️ Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          extensions: curl, json # Pastikan ekstensi cURL dan JSON terinstal
+          tools: composer, phpunit # Instal composer dan PHPUnit
+
+      - name: 📥 Instal dependencies
+        # Asumsi Anda memiliki composer.json dan autoload untuk PHPUnit
+        run: composer install --no-progress --prefer-dist
+        
+      # Pastikan file process.php ada di direktori yang sama
+      # atau sesuaikan path di definisi konstanta API_FILE_PATH Anda.
+      
+      - name: 🧪 Jalankan PHPUnit Tests
+        # Set environment variable yang digunakan oleh ApiTest.php
+        env:
+          # Menggunakan kunci palsu 'TEST_KEY_12345' sesuai dengan setUp() di ApiTest.php
+          GEMINI_API_KEY: 'TEST_KEY_12345'
+          # Jika Anda benar-benar menguji API sungguhan, gunakan Secret
+          # GEMINI_API_KEY: ${{ secrets.PROD_GEMINI_API_KEY }} 
+          
+        run: vendor/bin/phpunit --configuration phpunit.xml
